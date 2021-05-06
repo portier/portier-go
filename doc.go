@@ -13,5 +13,4 @@
 // Some applications may need more than a single Client / Config, for example
 // because they serve multiple domains. In this case, we recommended creating
 // short-lived Clients and sharing the Store between them.
-
 package portier

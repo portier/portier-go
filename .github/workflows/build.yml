@@ -42,7 +42,7 @@ jobs:
       run: go build -o client-tester-go -v ./tester
 
     - name: Build tester
-      run: go get -v github.com/portier/client-tester
+      run: go install github.com/portier/client-tester@latest
 
     - name: Run test suite
       run: ~/go/bin/client-tester -bin ./client-tester-go

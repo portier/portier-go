@@ -8,6 +8,7 @@ import (
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/option"
 )
 
 // Valid Config.ResponseMode values.
@@ -32,11 +33,21 @@ const discoveryPath = "/.well-known/openid-configuration"
 // application that calls Client.Verify. For other fields, NewClient will fall
 // back to defaults if they are zero.
 type Config struct {
-	Store        Store
+	Store
 	Broker       string        // Origin of the broker to use
 	RedirectURI  string        // Absolute URL to an app route that calls Verify
 	ResponseMode string        // How to call RedirectURI: form_post or fragment
 	Leeway       time.Duration // Time offset to allow when validating JWT claims
+}
+
+// AuthOption is the interface for options accepted by StartAuth.
+type AuthOption = option.Interface
+type identAuthState struct{}
+
+// WithState is used with StartAuth to add arbitrary state to the request,
+// which is returned in the `state` query parameter to the redirect URI.
+func WithState(state string) AuthOption {
+	return option.New(identAuthState{}, state)
 }
 
 // Client is used to perform Portier authentication.
@@ -53,7 +64,10 @@ type Client interface {
 	// to send a 303 HTTP status code with the Location header set to the URL.
 	// But other solutions are possible, such as fetching this URL using a
 	// request from client-side JavaScript.
-	StartAuth(email string) (string, error)
+	//
+	// Use a WithState option to add state to the request, which will be returned
+	// as the `state` query parameter to the redirect URI.
+	StartAuth(email string, options ...AuthOption) (string, error)
 
 	// Verify takes an id_token and returns a verified email address.
 	//
@@ -146,7 +160,15 @@ func (client *client) fetchDiscovery() (*discoveryDoc, error) {
 	return discovery, nil
 }
 
-func (client *client) StartAuth(email string) (string, error) {
+func (client *client) StartAuth(email string, options ...AuthOption) (string, error) {
+	state := ""
+	for _, option := range options {
+		switch option.Ident() {
+		case identAuthState{}:
+			state = option.Value().(string)
+		}
+	}
+
 	discovery, err := client.fetchDiscovery()
 	if err != nil {
 		return "", err
@@ -170,6 +192,9 @@ func (client *client) StartAuth(email string) (string, error) {
 	q.Set("response_mode", client.responseMode)
 	q.Set("client_id", client.clientID)
 	q.Set("redirect_uri", client.redirectURI)
+	if state != "" {
+		q.Set("state", state)
+	}
 	authURL.RawQuery = q.Encode()
 	return authURL.String(), nil
 }

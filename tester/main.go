@@ -38,7 +38,12 @@ func main() {
 		case "echo":
 			writeLine("ok", cmd[1])
 		case "auth":
-			url, err := client.StartAuth(cmd[1])
+			var url string
+			if len(cmd) >= 3 {
+				url, err = client.StartAuth(cmd[1], portier.WithState(cmd[2]))
+			} else {
+				url, err = client.StartAuth(cmd[1])
+			}
 			if err != nil {
 				writeLine("err", err.Error())
 			} else {
